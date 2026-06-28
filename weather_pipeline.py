@@ -62,7 +62,7 @@ def run_weather_pipeline():
 
     aws_access_key = require_env("AWS_ACCESS_KEY_ID")
     aws_secret_key = require_env("AWS_SECRET_ACCESS_KEY")
-    bucket_name = "my-weather-data-lake" 
+    bucket_name = "my-weather-data-lake-2026-975050334884-eu-north-1-an" 
     
     s3_client = boto3.client(
         's3',
