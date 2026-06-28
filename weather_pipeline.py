@@ -4,7 +4,32 @@ import pandas as pd
 from datetime import datetime, UTC  # Updated to use modern UTC features
 import boto3
 
+def load_env_file(file_path=".env"):
+    if not os.path.exists(file_path):
+        return
+
+    with open(file_path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+def require_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value
+
 def run_weather_pipeline():
+    load_env_file()
+
     # 1. FETCH LIVE WEATHER DATA
     print("Fetching live global weather records...")
     cities = {
@@ -20,7 +45,6 @@ def run_weather_pipeline():
         current = response["current_weather"]
         
         weather_records.append({
-            # FIXED: Removed the deprecation warning by using timezone-aware UTC datetime
             "recorded_at": datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S'),
             "city": city_name,
             "temperature_c": current["temperature"],
@@ -29,19 +53,15 @@ def run_weather_pipeline():
     
     # 2. TRANSFORM DATA INTO COMPRESSED PARQUET FORMAT
     df = pd.DataFrame(weather_records)
-    # FIXED: Modernized time extraction string
     file_name = f"weather_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.parquet"
     df.to_parquet(file_name, index=False)
     print(f"✔ Transformed data saved locally as: {file_name}")
     
     # 3. UPLOAD THE FILE DIRECTLY TO AMAZON S3 CLOUD
     print("Uploading file to Amazon S3 Cloud Data Lake...")
-    
-    # --- HARDCODE TESTING STRATEGY FOR LOCAL RUNS ---
-    # To run this successfully on your laptop before pushing to GitHub, 
-    # replace 'YOUR_ACTUAL_...' strings below with your real AWS keys.
-    aws_access_key = "Enter your AWS access key here"
-    aws_secret_key = "Enter your AWS secret key here"
+
+    aws_access_key = require_env("AWS_ACCESS_KEY_ID")
+    aws_secret_key = require_env("AWS_SECRET_ACCESS_KEY")
     bucket_name = "my-weather-data-lake" 
     
     s3_client = boto3.client(
